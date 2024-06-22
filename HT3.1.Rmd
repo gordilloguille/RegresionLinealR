@@ -1,0 +1,401 @@
+---
+title: "Hoja de Trabajo #3.1 - Regresiones Lineales"
+output: html_notebook
+Nombre: Jose Guillermo Gordillo Lopez
+Carne: 23003971
+---
+
+# Nombre: Jose Guillermo Gordillo Lopez
+# Carne: 23003971
+
+```{r}
+library(dplyr)
+
+```
+
+# 1. Carga y exploración de datos
+
+```{r}
+path= "auto-mpg.csv"
+(df <- read.csv(path))
+```
+##  Examina la estructura de los datos (str(df)).
+
+```{r}
+str(df)
+```
+## Calcula estadísticas descriptivas de las variables mpg , weight y horsepower
+
+```{r}
+summary(df$mpg)
+summary(df$weight)
+summary(df$horsepower)
+```
+- Se puede percatar que las estadisticas descriptivas de la variable "horsepower" no funcionan ya que se interpretan como caracteres
+
+### Se revisa los valores de la variables
+```{r}
+df$horsepower
+```
+### Se convierte en entero los valores remplazandose, advirtiendo que hay valores nulos
+```{r}
+df$horsepower <- as.integer(df$horsepower)
+```
+Se genera un histograma de la variable para ver que tanto afectarian estos valores nulos
+```{r}
+hist(df$horsepower)
+```
+### Se calcula la media y se remplazan los valores nulos en la variable
+```{r}
+# Calcular la media de la columna horsepower excluyendo los NA
+media_horsepower <- mean(df$horsepower, na.rm = TRUE)
+
+# Rellenar los NA en la columna horsepower con la media calculada
+df$horsepower[is.na(df$horsepower)] <- media_horsepower
+
+```
+
+### Se calculan de nuevo los valores estadisticos y ya todos son numericos
+```{r}
+summary(df$mpg)
+summary(df$weight)
+summary(df$horsepower)
+```
+```{r}
+hist(df$horsepower)
+```
+# 2. Regresión lineal simple
+
+```{r}
+modelo <- lm(mpg ~ weight, data=df)
+summary(modelo)
+```
+
+## 2.1 Interpreta los coeficientes del modelo. ¿Cuál es el efecto estimado del peso sobre el consumo de combustible? ¿Es estadísticamente significativo?
+
+* el intercepto estima que su valor sera de 46.317 cuando la variable independiente peso weight sea cero.
+* el otro valor importante es P que tiene un valor de 2e-16 lo que indica que aporta significativamente al modelo
+
+* la variable independiente weight indica que por cada unidad adicional de weight, el mpg disminuye en aproximadamente 0.0076766 unidades. Este coeficiente negativo sugiere que un mayor peso está asociado con una menor eficiencia en combustible
+* tambien que esta variable independiente aporta significativamente al modelo al tener un valor de 2e-16
+
+## 2.2 Evalúa la bondad de ajuste del modelo (R cuadrado).
+0.6918. Indica que aproximadamente el 69.18% de la variabilidad en mpg se explica por weight.
+
+## 2.3 Realiza un diagnóstico del modelo:
+
+* Crea gráficos de residuos (residuos vs. valores ajustados, residuos vs. weight, histograma de residuos, gráfico Q-Q).
+
+```{r}
+residuos <- residuals(modelo)
+```
+
+```{r}
+valores_ajustados <- fitted(modelo)
+
+plot(valores_ajustados, residuos)
+plot(residuos, df$weight)
+hist(residuos)
+qqnorm(residuos)
+qqline(residuos)
+plot(df$mpg ,df$weight)
+```
+## hay una linealidad negativa en donde entre mas peso tiene un vehiculo la variable mpg es mas pequeño, es logico entre mas pesa mas consumo de combustible, el histograma de residuos nos muestra cierta distribucion normal, se puede ver cierta heterosticidad en la grafica de residuos que se forma un embudo
+
+
+
+```{r}
+plot(modelo)
+```
+## 2.4 Si es necesario, aplica transformaciones a la variables (por ejemplo, logaritmo, inversa, etc) para corregir los problemas y vuelve a ajustar el modelo.
+
+*  Como se puede observar cierta heterosticidad, se realizara una transformacion
+
+
+## Transformacion Logaritmica
+```{r}
+(logaritmo <- data.frame(mpg = df$mpg, log = log(df$mpg)))
+```
+```{r}
+library(ggplot2)
+
+ggplot(data = logaritmo) +
+  aes(x = mpg) +
+  geom_histogram()
+
+
+ggplot(data = logaritmo) +
+  aes(x = log) +
+  geom_histogram()
+
+ggplot(data= logaritmo)+
+  aes(x = 1:nrow(logaritmo), y=mpg)+
+  geom_point()
+```
+## Transformacion Raiz
+
+```{r}
+(raiz <-  data.frame(mpg= df$mpg,raiz=sqrt(df$mpg)))
+
+hist(raiz$mpg)
+hist(raiz$raiz)
+
+```
+## Transformacion Inversa
+
+```{r}
+(inversa <- data.frame(mpg=df$mpg, inver = 1/df$mpg))
+
+ggplot(data=inversa)+
+  aes(x=1:nrow(inversa),y=mpg)+
+  geom_point()
+
+ggplot(data=inversa)+
+  aes(x=1:nrow(inversa),y=inver)+
+  geom_point()
+
+hist(inversa$mpg)
+hist(inversa$inver)
+ 
+```
+## Transformacion Box-Cox
+```{r}
+library(MASS)
+```
+```{r}
+bc <- boxcox(mpg ~ weight,data=df)
+
+(verosimilitud_maxima <- which.max(bc$y))
+(lambda <- bc$x[verosimilitud_maxima])
+(t_boxcox <- data.frame(mpg=df$mpg, bc = (df$mpg^lambda - 1) / lambda ))
+
+print(paste("lambda: ",lambda))
+
+hist(t_boxcox$bc)
+ 
+```
+```{r}
+(df <- df %>% 
+   mutate(mpg_bc = (mpg^lambda-1/lambda)))
+```
+
+
+```{r}
+modelo2 <- lm(mpg_bc ~ weight,data=df)
+summary(modelo2)
+```
+```{r}
+plot(modelo2)
+
+residuos <- residuals(modelo2)
+hist(residuos)
+
+residuos <- residuals(modelo)
+hist(residuos)
+
+```
+
+## Se puede observar que ya no hay heterolasticidad en la grafica de residuos y en el de escala se puede apreciar una homolasticidad, asi como el histograma de residuos vemos como la normalidad es mejor al modelo inicial
+
+* con la transformacion de box-cox mejoro bastante el modelo
+
+
+# 3. Regresión lineal múltiple
+
+```{r}
+modelo_multiple <- lm(mpg ~ weight + horsepower + acceleration,data=df)
+summary(modelo_multiple)
+```
+## 3.1 Analisis del Modelo Interpreta los coeficientes del modelo y Evalúa la bondad de ajuste del modelo (R cuadrado).
+
+* Los coeficientes:
+* weight: -0.0060209 nos indica que por cada unidad adicional en el peso del vehículose espera que mpg disminuya en aproximadamente 0.006 millas por galón, El valor negativo indica una relación inversa, es decir, a mayor peso, menor eficiencia de combustible. con su valor P < 2e-16, sugiere un fuerte efecto real en mpg
+
+* horsepower: -0.0418606 por cada unidad adicional de potencia, se espera que mpg disminuya en aproximadamente 0.0419 millas por galón. Esto indica que a mayor potencia, la eficiencia de combustible disminuye. con su valor P = 0.00712, lo que indica una fuerte efecto de que la potencia afecta a mpg.
+
+* acceleration: 0.0225883 por cada unidad adicional de aceleración, se espera que mpg aumente en aproximadamente 0.0226 millas por galón, Pero el efecto es minimo ademas que su valor P = 0.85094 nos indica que no tiene un mayor efecto en mpg, por lo que es considerable analizar eliminarla del modelo al no aportar mayor valor al mismo
+
+Vemos en el modelo que R Cuadrado tiene un valor de 0.70 que indica que es un buen ajuste al modelo, pero no mejor al modelo lineal de una variable independiente transformada que tenia un valor de 0.79
+
+
+```{r}
+plot(modelo_multiple)
+
+residuos <- residuals(modelo_multiple)
+hist(residuos)
+```
+## Se puede observar una clara heterosticidad, la distribucion normal de los residuos se mira bien, por lo que se realizara una transformacion 
+
+```{r}
+bc <- boxcox(mpg ~ weight + horsepower + acceleration,data=df)
+
+(verosimilitud_maxima <- which.max(bc$y))
+(lambda <- bc$x[verosimilitud_maxima]) 
+
+(df <- df %>% 
+   mutate(mpg_bc_mult = (mpg^lambda-1/lambda)))
+
+
+modelo_multiple_bc <- lm(mpg_bc_mult ~ weight + horsepower + acceleration,data=df)
+summary(modelo_multiple_bc)
+plot(modelo_multiple_bc)
+```
+## al realizar la transformacion box-cox sobre la variable mpg con el modelo multiple, se elimino la heterocticidad, dando una mejor grafica en los residuos.
+
+```{r}
+colnames(df)
+```
+```{r}
+library(corrplot)
+```
+
+```{r}
+df2 <- df %>% 
+  dplyr::select("mpg","mpg_bc_mult", "horsepower", "weight","acceleration")
+ 
+(matriz <- cor(df2))
+
+corrplot(cor(df2), method = "number")
+ 
+```
+```{r}
+plot(df2$horsepower, df2$weight )
+plot(df2$horsepower, df2$acceleration )
+plot(df2$weight, df2$acceleration )
+```
+
+## Como se puede observar hay una alta multicolinealidad entre horsepower y weight, por lo que se eliminara horsepower y tambien accelearation ya que en el modelo aporta muy poco estadisticamente. por lo que es necesario analizar otras variables independientes
+
+
+```{r}
+library(glmnet)
+
+```
+
+```{r}
+(independientes <- setdiff(colnames(df),c("car.name","mpg_bc","mpg_bc_mult")))
+ 
+```
+
+
+```{r}
+library("caret")
+``` 
+
+
+```{r}
+set.seed(12345)
+caret::train(mpg ~ .
+             , data = df[,independientes]
+             , method = "glmnet"
+             )
+```
+```{r}
+(independientes2 <- setdiff(colnames(df),c("mpg","car.name","mpg_bc","mpg_bc_mult")))
+
+x <- as.matrix(df[,independientes2])
+y <- df$mpg
+```
+
+```{r}
+modelo_lasso <- glmnet(x,y,alpha = 1, lambda = 0.129854)
+coef(modelo_lasso)
+```
+
+```{r}
+df3 <- df %>% 
+  dplyr::select("mpg" ,"cylinders","displacement","horsepower","weight","acceleration","model.year","origin" )
+ 
+(matriz <- cor(df3))
+
+corrplot(cor(df3), method = "number")
+```
+
+```{r}
+varImp(modelo_lasso,lambda = 0.0129854)
+```
+### Se puede observar claramente la Multicolinealidad entre las variables cylinders,displacement, y que justamente cuando se aplica una regularizaricion del tipo LASSO las elimina., asi tambien como la variable origin puede ser una buena candidata para un nuevo modelo, 
+
+
+# 4. Variables dummy
+
+## Convierte la variable categórica origin en variables dummy. 
+```{r}
+df$origin <- factor(df$origin)
+levels(df$origin)
+```
+```{r}
+ 
+modelo_multiple2 <- lm(mpg ~ weight + horsepower +  acceleration + origin,data=df)
+summary(modelo_multiple2)
+plot(modelo_multiple2)
+```
+### Se puede observar que los coeficientes de esta variable dummy, cuando el origen es 2 el mpg aumentara 1.226 y cuando el origen es 3 aumentara 2.698 mpg, adema que estas variables en su valor P, la variable origin2 no es significativa para el modelo. vemos que el coeficiente R cuadrado es de 0.71
+
+### aparte se puede ver que en relacion con las demas variables independientes que ya se demostro que hay una multicolinealidad, asi como heterolasticidad, por lo que se verificara como al transformar la variable mpg con este nuevo modelo como se comportara
+
+```{r}
+bc <- boxcox(mpg ~ weight + horsepower +  acceleration + origin,data=df)
+
+(verosimilitud_maxima <- which.max(bc$y))
+(lambda <- bc$x[verosimilitud_maxima]) 
+
+(df <- df %>% 
+   mutate(mpg_bc_mult2 = (mpg^lambda-1/lambda)))
+
+
+modelo_multiple_bc2 <- lm(mpg_bc_mult2 ~ weight + horsepower + acceleration + origin,data=df)
+summary(modelo_multiple_bc2)
+plot(modelo_multiple_bc2)
+```
+### Vemos que los estimadores de los coeficientes aumentaron y que el valor P de origin2 y acceleration  siguen sin ser significativos en el modelo, pero al transformar la variable mpg con este modelo, el coeficiente R cuadrado mejoro, 
+
+# 5. Modelo libre 
+
+* Realiza un modelo múltiple con cualquier combinación de las variables disponibles.
+
+
+## Con la matriz de correlacion que se saco anteriormente y con la funcion VarImp se pudieron detectar 2 variables que podrian aportar mas al modelo, las cuales son model.year y origin, eliminando horsepower y acceleration ya que estas no ayudan al modelo 
+```{r}
+modelo_multiple3 <- lm(mpg ~ weight + model.year + origin,data=df)
+summary(modelo_multiple3)
+plot(modelo_multiple3)
+```
+### Vemos como sigue habiendo heterolasticidad, lo cual con la transformacion podra mejorar el modelo, eliminando el mismo.
+```{r}
+bc <- boxcox(mpg ~ weight + model.year + origin,data=df)
+
+(verosimilitud_maxima <- which.max(bc$y))
+(lambda <- bc$x[verosimilitud_maxima]) 
+
+(df <- df %>% 
+   mutate(mpg_bc_mult3 = (mpg^lambda-1/lambda)))
+
+
+modelo_multiple_bc3 <- lm(mpg_bc_mult3 ~ weight + model.year + origin,data=df)
+summary(modelo_multiple_bc3)
+plot(modelo_multiple_bc3)
+residuos <- residuals(modelo_multiple_bc3)
+hist(residuos)
+```
+### Se puede observar que el cambio es mejor que el coeficiente R Cuadrado es 0.88 y que todas las variables aportan significativamente al modelo. 
+```{r}
+# Revertir la columna `origin` a numeric
+df$origin <- as.numeric(df$origin)
+```
+ 
+ 
+```{r}
+df2 <- df %>% 
+  dplyr::select("mpg","weight", "origin", "model.year")
+ 
+(matriz <- cor(df2))
+
+corrplot( cor(df2), method = "number")
+```
+### Se puede observar que no hay multicolinealidad entra las variables del modelo
+
+###  Al transformar la variable dependiente con el nuevo modelo, vemos como el coeficiente de Adjusted R-squared:  0.8823, podemos percatarnos que con la grafica de residuos hay homolasticidad, asi como mejoro la Grafica Q_Q de Residuo, Tambien vemos como la distribucion normal es mas pareja, no hay sesgo
+
+
+
